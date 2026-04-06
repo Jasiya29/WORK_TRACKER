@@ -1,15 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { Check, Trash2, Plus, ArrowLeft } from 'lucide-react';
 
-const TodoGrid = ({ monthId, monthName, onBack }) => {
-  const [selectedDay, setSelectedDay] = useState(null);
+const TodoGrid = ({ monthId, monthName, onBack, initialDay }) => {
+  // --- STATE ---
+  const [selectedDay, setSelectedDay] = useState(initialDay || null);
   const [tasksByDate, setTasksByDate] = useState({}); 
   const [inputValue, setInputValue] = useState("");
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
+  // --- SYNC PROP TO STATE (THE FIX) ---
+  // This ensures that when you click "April List" (initialDay = null) 
+  // or "Today" (initialDay = 6), this component updates its view.
+  useEffect(() => {
+    setSelectedDay(initialDay);
+  }, [initialDay]);
+
   // --- LOCAL STORAGE & RESPONSIVENESS ---
   useEffect(() => {
-    // Load all tasks from local storage on mount
     const savedTasks = localStorage.getItem('todo_tasks_2026');
     if (savedTasks) {
       setTasksByDate(JSON.parse(savedTasks));
@@ -21,7 +28,6 @@ const TodoGrid = ({ monthId, monthName, onBack }) => {
   }, []);
 
   useEffect(() => {
-    // Save tasks whenever they change
     if (Object.keys(tasksByDate).length > 0) {
       localStorage.setItem('todo_tasks_2026', JSON.stringify(tasksByDate));
     }
@@ -31,6 +37,7 @@ const TodoGrid = ({ monthId, monthName, onBack }) => {
   const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
   const dateKey = `${monthId}-${selectedDay}`;
 
+  // --- HANDLERS ---
   const handleAddTask = (e) => {
     if ((e.key === 'Enter' || e.type === 'click') && inputValue.trim()) {
       const currentTasks = tasksByDate[dateKey] || [];
@@ -53,6 +60,7 @@ const TodoGrid = ({ monthId, monthName, onBack }) => {
     setTasksByDate({ ...tasksByDate, [dateKey]: updated });
   };
 
+  // --- STYLES (EXACTLY AS PROVIDED) ---
   const styles = {
     container: { padding: isMobile ? '10px' : '20px', animation: 'fadeIn 0.3s ease' },
     dayGrid: { 
@@ -103,7 +111,7 @@ const TodoGrid = ({ monthId, monthName, onBack }) => {
       outline: 'none',
       fontWeight: '600',
       color: '#A16207',
-      fontSize: '16px', // Prevents iOS zoom
+      fontSize: '16px',
       padding: '8px 0',
       backgroundColor: 'transparent'
     }
@@ -150,7 +158,7 @@ const TodoGrid = ({ monthId, monthName, onBack }) => {
                     {task.text}
                   </td>
                   <td style={styles.td}>
-                    <Trash2 size={18} color="#FDA4AF" onClick={() => deleteTask(task.id)} />
+                    <Trash2 size={18} color="#FDA4AF" onClick={() => deleteTask(task.id)} style={{ cursor: 'pointer' }} />
                   </td>
                 </tr>
               ))}

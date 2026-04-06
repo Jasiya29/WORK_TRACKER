@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Image as ImageIcon, Save, Smile, X, ArrowLeft } from 'lucide-react';
 
-const JournalCalendar = ({ month, onBack }) => {
-  const [selectedDay, setSelectedDay] = useState(null);
+const JournalCalendar = ({ month, onBack, selectedDay: propDay, viewMode }) => {
+  // --- Initialize state with propDay if provided, otherwise null ---
+  const [selectedDay, setSelectedDay] = useState(propDay || null);
   const [entry, setEntry] = useState("");
   const [showEmojiBoard, setShowEmojiBoard] = useState(false);
   const [attachedImage, setAttachedImage] = useState(null);
@@ -10,6 +11,14 @@ const JournalCalendar = ({ month, onBack }) => {
   
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
+
+  // --- SYNC WITH PARENT PROP ---
+  // This ensures that if the parent says "Go to April 6", this component listens.
+  useEffect(() => {
+    if (propDay) {
+      setSelectedDay(propDay);
+    }
+  }, [propDay]);
 
   // --- Persistence Logic (LocalStorage) ---
   useEffect(() => {
@@ -33,7 +42,6 @@ const JournalCalendar = ({ month, onBack }) => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // --- Handlers ---
   const saveEntry = () => {
     const storageKey = `journal_2026_${month.name}_${selectedDay}`;
     const data = { text: entry, image: attachedImage };
@@ -45,9 +53,7 @@ const JournalCalendar = ({ month, onBack }) => {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setAttachedImage(reader.result); // Stores as Base64 for LocalStorage
-      };
+      reader.onloadend = () => setAttachedImage(reader.result);
       reader.readAsDataURL(file);
     }
   };
@@ -69,46 +75,28 @@ const JournalCalendar = ({ month, onBack }) => {
   };
 
   const styles = {
-    wrapper: { 
-      padding: isMobile ? '15px' : '20px', 
-      animation: 'fadeIn 0.3s ease',
-      maxWidth: '100%',
-      overflowX: 'hidden'
-    },
+    wrapper: { padding: isMobile ? '10px' : '20px', animation: 'fadeIn 0.3s ease', maxWidth: '100%' },
     backBtn: { 
-      background: 'none', border: 'none', color: '#9D174D', 
-      fontWeight: '800', cursor: 'pointer', marginBottom: '15px', 
-      display: 'flex', alignItems: 'center', gap: '8px',
-      fontSize: isMobile ? '12px' : '14px'
+      background: 'none', border: 'none', color: '#9D174D', fontWeight: '800', 
+      cursor: 'pointer', marginBottom: '15px', display: 'flex', alignItems: 'center', 
+      gap: '8px', fontSize: isMobile ? '12px' : '14px' 
     },
     entryPage: {
-      backgroundColor: '#FFFFFF', borderRadius: isMobile ? '20px' : '30px', 
-      padding: isMobile ? '20px' : '35px',
-      border: '2px solid #FBCFE8', minHeight: isMobile ? '80vh' : '650px', 
-      position: 'relative', display: 'flex', flexDirection: 'column', 
-      boxShadow: '0 10px 30px rgba(157, 23, 77, 0.05)'
+      backgroundColor: '#FFFFFF', borderRadius: isMobile ? '25px' : '35px', 
+      padding: isMobile ? '20px' : '35px', border: '2px solid #FBCFE8', 
+      minHeight: isMobile ? '70vh' : '600px', display: 'flex', flexDirection: 'column', 
+      boxShadow: '0 10px 30px rgba(157, 23, 77, 0.05)', position: 'relative'
     },
-    toolbar: { 
-      display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
-      borderBottom: '2px solid #FDF2F8', paddingBottom: '15px' 
-    },
+    toolbar: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #FDF2F8', paddingBottom: '15px' },
     emojiBoard: {
-      position: 'absolute', 
-      top: isMobile ? '70px' : '80px', 
-      left: isMobile ? '10px' : '35px', 
-      right: isMobile ? '10px' : 'auto',
-      zIndex: 100, backgroundColor: 'white', border: '1px solid #FBCFE8', 
-      borderRadius: '20px', padding: '15px', 
-      width: isMobile ? 'calc(100% - 20px)' : '280px', 
-      maxHeight: '300px', overflowY: 'auto',
-      boxShadow: '0 15px 40px rgba(157, 23, 77, 0.15)'
+      position: 'absolute', top: '70px', left: isMobile ? '10px' : '35px', zIndex: 100, 
+      backgroundColor: 'white', border: '1px solid #FBCFE8', borderRadius: '20px', 
+      padding: '15px', width: isMobile ? 'calc(100% - 20px)' : '280px', boxShadow: '0 15px 40px rgba(157, 23, 77, 0.15)'
     },
     textarea: {
-      width: '100%', flex: 1, border: 'none', outline: 'none',
-      fontSize: isMobile ? '16px' : '19px', // 16px prevents iOS zoom
-      fontFamily: "'Georgia', serif", lineHeight: '1.6',
-      color: '#475569', resize: 'none', marginTop: '20px', 
-      backgroundColor: 'transparent'
+      width: '100%', flex: 1, border: 'none', outline: 'none', fontSize: '17px', 
+      fontFamily: "'Georgia', serif", lineHeight: '1.6', color: '#475569', 
+      resize: 'none', marginTop: '20px', backgroundColor: 'transparent'
     },
     dayGrid: { 
       display: 'grid', 
@@ -117,20 +105,15 @@ const JournalCalendar = ({ month, onBack }) => {
     }
   };
 
-  if (selectedDay) {
+  // --- VIEW 1: JOURNAL ENTRY PAGE ---
+  // If viewMode is 'entry' (or a day is selected), show the writing space
+  if (viewMode === 'entry' || (selectedDay && viewMode !== 'month')) {
     return (
       <div style={styles.wrapper}>
-        <button onClick={() => setSelectedDay(null)} style={styles.backBtn}>
-          <ArrowLeft size={18} /> BACK TO CALENDAR
-        </button>
-
         <div style={styles.entryPage}>
           <div style={styles.toolbar}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-              <Smile 
-                size={isMobile ? 24 : 28} color="#EC4899" cursor="pointer" 
-                onClick={() => setShowEmojiBoard(!showEmojiBoard)} 
-              />
+              <Smile size={24} color="#EC4899" cursor="pointer" onClick={() => setShowEmojiBoard(!showEmojiBoard)} />
               {showEmojiBoard && (
                 <div style={styles.emojiBoard}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
@@ -141,9 +124,7 @@ const JournalCalendar = ({ month, onBack }) => {
                     <div key={cat} style={{ marginBottom: '10px' }}>
                       <div style={{ fontSize: '10px', color: '#F9A8D4', marginBottom: '5px' }}>{cat}</div>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                        {list.map(e => (
-                          <span key={e} onClick={() => addEmoji(e)} style={{ fontSize: '20px', cursor: 'pointer' }}>{e}</span>
-                        ))}
+                        {list.map(e => <span key={e} onClick={() => addEmoji(e)} style={{ fontSize: '20px', cursor: 'pointer' }}>{e}</span>)}
                       </div>
                     </div>
                   ))}
@@ -151,20 +132,20 @@ const JournalCalendar = ({ month, onBack }) => {
               )}
             </div>
 
-            <div style={{ display: 'flex', gap: isMobile ? '15px' : '20px' }}>
+            <div style={{ display: 'flex', gap: '15px' }}>
               <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept="image/*" onChange={handleImageUpload} />
-              <ImageIcon size={isMobile ? 22 : 26} color="#EC4899" cursor="pointer" onClick={() => fileInputRef.current.click()} />
-              <Save size={isMobile ? 22 : 26} color="#EC4899" cursor="pointer" onClick={saveEntry} />
+              <ImageIcon size={22} color="#EC4899" cursor="pointer" onClick={() => fileInputRef.current.click()} />
+              <Save size={22} color="#EC4899" cursor="pointer" onClick={saveEntry} />
             </div>
           </div>
 
-          <h2 style={{ color: '#9D174D', marginTop: '15px', fontSize: isMobile ? '22px' : '32px', fontWeight: '900' }}>
-            {month.name} {selectedDay}
+          <h2 style={{ color: '#9D174D', marginTop: '15px', fontSize: '24px', fontWeight: '900' }}>
+            {month.name} {selectedDay}, 2026
           </h2>
           
           <textarea 
             ref={textareaRef}
-            placeholder="Write about your day..." 
+            placeholder="What's on your mind today?" 
             style={styles.textarea}
             value={entry}
             onChange={(e) => setEntry(e.target.value)}
@@ -174,7 +155,7 @@ const JournalCalendar = ({ month, onBack }) => {
           {attachedImage && (
             <div style={{ marginTop: '20px', position: 'relative', borderRadius: '15px', overflow: 'hidden' }}>
               <div 
-                style={{ position: 'absolute', top: '5px', right: '5px', backgroundColor: 'white', borderRadius: '50%', padding: '4px' }}
+                style={{ position: 'absolute', top: '5px', right: '5px', backgroundColor: 'white', borderRadius: '50%', padding: '4px', cursor: 'pointer' }}
                 onClick={() => setAttachedImage(null)}
               >
                 <X size={14} color="#EC4899" />
@@ -187,21 +168,22 @@ const JournalCalendar = ({ month, onBack }) => {
     );
   }
 
+  // --- VIEW 2: MONTH GRID (ALL DAYS) ---
   const daysInMonth = new Date(2026, month.id, 0).getDate();
   const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
   return (
     <div style={styles.wrapper}>
-      <button onClick={onBack} style={styles.backBtn}><ArrowLeft size={18} /> BACK</button>
-      <h2 style={{ color: '#9D174D', fontWeight: '900', marginBottom: '20px' }}>{month.name} 2026</h2>
+      <h2 style={{ color: '#9D174D', fontWeight: '900', marginBottom: '20px', fontSize: '22px' }}>{month.name} Archive</h2>
       <div style={styles.dayGrid}>
         {daysArray.map(day => (
           <div 
             key={day} 
             style={{ 
               aspectRatio: '1/1', backgroundColor: '#FFF', border: '2px solid #FCE7F3', 
-              borderRadius: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', 
-              fontSize: isMobile ? '18px' : '22px', fontWeight: '800', color: '#EC4899'
+              borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', 
+              fontSize: '20px', fontWeight: '800', color: '#EC4899', cursor: 'pointer',
+              boxShadow: '0 4px 6px rgba(0,0,0,0.02)'
             }}
             onClick={() => setSelectedDay(day)}
           >

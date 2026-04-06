@@ -1,12 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import WorkoutGrid from './WorkOutGrid';
-import { Dumbbell } from 'lucide-react';
+import { Dumbbell, Grid, Calendar } from 'lucide-react';
 
 const WorkoutTracker = () => {
-  const [selectedMonth, setSelectedMonth] = useState(null);
+  // --- SYSTEM DATE DETECTION ---
+  const now = new Date();
+  const currentMonthIndex = now.getMonth(); // 0-11
+  const todayDate = now.getDate(); // 1-31
+
+  // --- STATE MANAGEMENT ---
+  const [selectedMonth, setSelectedMonth] = useState(currentMonthIndex);
+  const [selectedDay, setSelectedDay] = useState(todayDate);
+  const [viewMode, setViewMode] = useState('daily'); // 'daily' or 'archive'
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
-  // --- Mobile Responsiveness Logic ---
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', handleResize);
@@ -20,15 +27,16 @@ const WorkoutTracker = () => {
 
   const getCardStyle = (index) => {
     const colors = [
-      { bg: '#DCFCE7', border: '#BBF7D0', text: '#166534' }, // Mint
-      { bg: '#F0FDF4', border: '#86EFAC', text: '#15803D' }, // Soft Green
-      { bg: '#ECFDF5', border: '#A7F3D0', text: '#047857' }  // Emerald Tint
+      { bg: '#DCFCE7', border: '#BBF7D0', text: '#166534' }, 
+      { bg: '#F0FDF4', border: '#86EFAC', text: '#15803D' }, 
+      { bg: '#ECFDF5', border: '#A7F3D0', text: '#047857' }  
     ];
     const color = colors[index % 3];
+    const isCurrent = index === currentMonthIndex;
     
     return {
       backgroundColor: color.bg,
-      border: `2px solid ${color.border}`,
+      border: isCurrent ? `3px solid #22C55E` : `2px solid ${color.border}`,
       borderRadius: isMobile ? '20px' : '24px',
       height: isMobile ? '120px' : '160px',
       display: 'flex',
@@ -38,109 +46,112 @@ const WorkoutTracker = () => {
       paddingLeft: isMobile ? '20px' : '0',
       cursor: 'pointer',
       transition: 'all 0.2s ease',
-      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.05)',
+      boxShadow: isCurrent ? '0 0 15px rgba(34, 197, 94, 0.2)' : '0 10px 15px -3px rgba(0, 0, 0, 0.05)',
       position: 'relative',
-      overflow: 'hidden',
-      WebkitTapHighlightColor: 'transparent' // Cleaner mobile taps
+      overflow: 'hidden'
     };
   };
 
-  if (selectedMonth !== null) {
+  const navBtnStyle = (active) => ({
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    backgroundColor: active ? '#22C55E' : '#F0FDF4',
+    border: `2px solid ${active ? '#166534' : '#BBF7D0'}`,
+    color: active ? '#FFFFFF' : '#166534',
+    padding: '10px 20px',
+    borderRadius: '12px',
+    fontWeight: '800',
+    fontSize: '12px',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease'
+  });
+
+  // --- NAVIGATION HEADER (Simplified to 2 Buttons) ---
+  const NavigationHeader = () => (
+    <div style={{ 
+      display: 'flex', 
+      gap: '12px', 
+      marginBottom: '25px', 
+      justifyContent: isMobile ? 'center' : 'flex-start' 
+    }}>
+      <button 
+        onClick={() => { 
+          setSelectedDay(null); 
+          setViewMode('archive'); 
+        }} 
+        style={navBtnStyle(viewMode === 'archive')}
+      >
+        <Grid size={18} /> ALL MONTHS
+      </button>
+
+      <button 
+        onClick={() => { 
+          setSelectedMonth(currentMonthIndex);
+          setSelectedDay(todayDate); 
+          setViewMode('daily'); 
+        }} 
+        style={navBtnStyle(viewMode === 'daily')}
+      >
+        <Calendar size={18} /> TODAY
+      </button>
+    </div>
+  );
+
+  // --- VIEW 1: YEARLY ARCHIVE ---
+  if (viewMode === 'archive') {
     return (
-      <WorkoutGrid 
-        monthName={months[selectedMonth]} 
-        monthId={selectedMonth + 1} 
-        onBack={() => setSelectedMonth(null)} 
-      />
+      <div style={{ animation: 'fadeIn 0.5s ease', padding: isMobile ? '10px' : '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '30px' }}>
+          <Dumbbell size={28} color="#22C55E" style={{ marginRight: '12px' }} />
+          <h2 style={{ fontSize: '28px', fontWeight: '900', color: '#166534', margin: 0 }}>Workout Archive</h2>
+        </div>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(auto-fill, minmax(220px, 1fr))', gap: isMobile ? '12px' : '25px' }}>
+          {months.map((name, index) => (
+            <div 
+              key={name} 
+              style={getCardStyle(index)} 
+              onClick={() => { 
+                setSelectedMonth(index); 
+                setSelectedDay(null); // Force land on the 1-31 grid
+                setViewMode('daily'); // Switch to the month view
+              }}
+            >
+              <span style={{ position: 'absolute', top: '10px', right: '15px', fontSize: '35px', fontWeight: '900', color: 'rgba(255, 255, 255, 0.4)' }}>
+                {String(index + 1).padStart(2, '0')}
+              </span>
+              <h3 style={{ fontSize: isMobile ? '16px' : '20px', fontWeight: '900', color: '#166534', margin: 0 }}>{name.toUpperCase()}</h3>
+              {index === currentMonthIndex && (
+                <div style={{ position: 'absolute', top: '10px', left: '10px', backgroundColor: '#22C55E', color: 'white', fontSize: '9px', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>
+                  CURRENT
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
     );
   }
 
+  // --- VIEW 2: WORKOUT GRID / ENTRY ---
   return (
-    <div style={{ 
-      animation: 'fadeIn 0.5s ease', 
-      padding: isMobile ? '10px' : '20px' 
-    }}>
+    <div style={{ padding: isMobile ? '10px' : '20px', animation: 'fadeIn 0.3s ease' }}>
       <style>
-        {`
-          @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-          }
-        `}
+        {` @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } } `}
       </style>
-
-      <div style={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        marginBottom: isMobile ? '20px' : '30px' 
-      }}>
-        <Dumbbell size={isMobile ? 24 : 32} color="#22C55E" style={{ marginRight: '12px' }} />
-        <h2 style={{ 
-          fontSize: isMobile ? '24px' : '28px', 
-          fontWeight: '900', 
-          color: '#166534',
-          margin: 0
-        }}>
-          Workout Months
-        </h2>
-      </div>
-
-      <div style={{ 
-        display: 'grid', 
-        // 2 columns on mobile, auto-fill on desktop
-        gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(auto-fill, minmax(220px, 1fr))', 
-        gap: isMobile ? '12px' : '25px' 
-      }}>
-        {months.map((name, index) => {
-          const style = getCardStyle(index);
-          return (
-            <div 
-              key={name} 
-              style={style} 
-              onClick={() => setSelectedMonth(index)}
-              onMouseEnter={(e) => {
-                if (!isMobile) e.currentTarget.style.transform = 'translateY(-5px)';
-              }}
-              onMouseLeave={(e) => {
-                if (!isMobile) e.currentTarget.style.transform = 'translateY(0)';
-              }}
-            >
-              <span style={{ 
-                position: 'absolute', 
-                top: isMobile ? '5px' : '10px', 
-                right: isMobile ? '10px' : '15px', 
-                fontSize: isMobile ? '32px' : '40px', 
-                fontWeight: '900', 
-                color: 'rgba(255, 255, 255, 0.5)',
-                zIndex: 1
-              }}>
-                {String(index + 1).padStart(2, '0')}
-              </span>
-
-              <h3 style={{ 
-                fontSize: isMobile ? '16px' : '20px', 
-                fontWeight: '900', 
-                color: style.text, 
-                letterSpacing: '1px', 
-                zIndex: 2,
-                margin: 0
-              }}>
-                {name.toUpperCase()}
-              </h3>
-
-              {/* Decorative Fitness Line */}
-              <div style={{ 
-                marginTop: '10px', 
-                width: isMobile ? '30px' : '45px', 
-                height: '4px', 
-                backgroundColor: 'rgba(255, 255, 255, 0.8)', 
-                borderRadius: '10px',
-                zIndex: 2
-              }} />
-            </div>
-          );
-        })}
-      </div>
+      
+      <NavigationHeader />
+      
+      <WorkoutGrid 
+        monthName={months[selectedMonth]} 
+        monthId={selectedMonth + 1} 
+        initialDay={selectedDay} 
+        onBack={() => { 
+          setSelectedDay(null); 
+          setViewMode('archive'); 
+        }} 
+      />
     </div>
   );
 };

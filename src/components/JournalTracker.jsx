@@ -1,9 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import JournalCalendar from './JournalCalendar';
-import { BookOpen } from 'lucide-react';
+import { BookOpen, Grid, List, PenLine } from 'lucide-react';
 
 const JournalTracker = () => {
-  const [selectedMonth, setSelectedMonth] = useState(null);
+  // --- SYSTEM DATE DETECTION ---
+  const now = new Date();
+  const currentMonthIndex = now.getMonth(); // 0-11 (April is 3)
+  const todayDate = now.getDate(); // 1-31 (Current Day)
+
+  // State Management
+  // We initialize these with the system's current date values
+  const [selectedMonth, setSelectedMonth] = useState(currentMonthIndex);
+  const [selectedDay, setSelectedDay] = useState(todayDate);
+  
+  // 'entry' mode tells the child component to skip the list and show the text area
+  const [viewMode, setViewMode] = useState('entry'); 
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   useEffect(() => {
@@ -17,129 +28,84 @@ const JournalTracker = () => {
     "July", "August", "September", "October", "November", "December"
   ];
 
-  const getCardStyle = (index) => {
-    const colors = [
-      { bg: '#FCE7F3', border: '#FBCFE8', text: '#9D174D' }, 
-      { bg: '#FDF2F8', border: '#F9A8D4', text: '#BE185D' }, 
-      { bg: '#FFF1F2', border: '#FECDD3', text: '#E11D48' }  
-    ];
-    const color = colors[index % 3];
+  // --- NAVIGATION BAR ---
+  const NavigationHeader = () => (
+    <div style={{ 
+      display: 'flex', 
+      gap: '8px', 
+      marginBottom: '20px', 
+      overflowX: 'auto',
+      paddingBottom: '5px',
+      justifyContent: isMobile ? 'flex-start' : 'center'
+    }}>
+      <button onClick={() => setViewMode('archive')} style={navBtnStyle(viewMode === 'archive')}>
+        <Grid size={14} /> ALL MONTHS
+      </button>
+      <button onClick={() => setViewMode('month')} style={navBtnStyle(viewMode === 'month')}>
+        <List size={14} /> {months[selectedMonth]} LIST
+      </button>
+      <button onClick={() => { setSelectedDay(todayDate); setViewMode('entry'); }} style={navBtnStyle(viewMode === 'entry')}>
+        <PenLine size={14} /> TODAY'S JOURNAL
+      </button>
+    </div>
+  );
 
-    return {
-      backgroundColor: color.bg,
-      border: `2px solid ${color.border}`,
-      borderRadius: isMobile ? '20px' : '24px',
-      // Thinner cards on mobile to save vertical space
-      height: isMobile ? '100px' : '160px', 
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'center',
-      alignItems: isMobile ? 'flex-start' : 'center', // Align left on mobile
-      paddingLeft: isMobile ? '20px' : '0',
-      cursor: 'pointer',
-      transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.05)',
-      position: 'relative',
-      overflow: 'hidden',
-      WebkitTapHighlightColor: 'transparent' // Removes blue flash on tap for mobile
-    };
-  };
+  const navBtnStyle = (active) => ({
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    whiteSpace: 'nowrap',
+    backgroundColor: active ? '#EC4899' : '#FFFFFF',
+    border: `2px solid ${active ? '#9D174D' : '#FBCFE8'}`,
+    color: active ? '#FFFFFF' : '#9D174D',
+    padding: '8px 14px',
+    borderRadius: '12px',
+    fontWeight: '800',
+    fontSize: '10px',
+    cursor: 'pointer',
+    transition: '0.2s'
+  });
 
-  if (selectedMonth !== null) {
+  // 1. YEARLY ARCHIVE (If "ALL MONTHS" is clicked)
+  if (viewMode === 'archive') {
     return (
-      <JournalCalendar 
-        month={{ id: selectedMonth + 1, name: months[selectedMonth] }} 
-        onBack={() => setSelectedMonth(null)} 
-      />
+      <div style={{ animation: 'fadeIn 0.3s ease', padding: isMobile ? '10px' : '20px' }}>
+        <h2 style={{ color: '#9D174D', fontWeight: '900', textAlign: 'center' }}>Archive</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+          {months.map((name, index) => (
+            <div 
+              key={name} 
+              onClick={() => { setSelectedMonth(index); setViewMode('month'); }}
+              style={{
+                backgroundColor: index === currentMonthIndex ? '#FCE7F3' : '#FFF',
+                border: index === currentMonthIndex ? '2px solid #EC4899' : '2px solid #F1F5F9',
+                padding: '25px', borderRadius: '20px', textAlign: 'center'
+              }}
+            >
+              <span style={{ fontWeight: '800', color: '#9D174D' }}>{name}</span>
+            </div>
+          ))}
+        </div>
+      </div>
     );
   }
 
+  // 2. JOURNALING PAGE (Lands here automatically for Today)
   return (
-    <div style={{ 
-      animation: 'fadeIn 0.5s ease', 
-      padding: isMobile ? '10px' : '20px',
-      maxWidth: '1200px',
-      margin: '0 auto'
-    }}>
-      <div style={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        marginBottom: isMobile ? '20px' : '30px' 
-      }}>
-        <BookOpen size={isMobile ? 24 : 28} color="#EC4899" style={{ marginRight: '12px' }} />
-        <h2 style={{ 
-          fontSize: isMobile ? '22px' : '28px', 
-          fontWeight: '800', 
-          color: '#9D174D', 
-          margin: 0 
-        }}>
-          Journal Archive
-        </h2>
-      </div>
-
-      <div style={{
-        display: 'grid',
-        // On mobile, show 2 columns. On tablet/desktop, use auto-fill.
-        gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(auto-fill, minmax(220px, 1fr))',
-        gap: isMobile ? '12px' : '25px'
-      }}>
-        {months.map((name, index) => (
-          <div
-            key={name}
-            style={getCardStyle(index)}
-            onClick={() => setSelectedMonth(index)}
-            onMouseEnter={(e) => {
-              if (!isMobile) {
-                e.currentTarget.style.transform = 'translateY(-5px)';
-                e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(0, 0, 0, 0.1)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!isMobile) {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.05)';
-              }
-            }}
-          >
-            <span style={{
-              position: 'absolute', 
-              top: isMobile ? '5px' : '10px', 
-              right: isMobile ? '10px' : '15px',
-              fontSize: isMobile ? '28px' : '40px', 
-              fontWeight: '900', 
-              color: 'rgba(255, 255, 255, 0.5)'
-            }}>
-              {String(index + 1).padStart(2, '0')}
-            </span>
-
-            <h3 style={{ 
-              fontSize: isMobile ? '16px' : '22px', 
-              fontWeight: '800', 
-              color: '#9D174D', 
-              zIndex: 2,
-              margin: 0
-            }}>
-              {name.toUpperCase()}
-            </h3>
-            
-            {/* The little decorative bar stays visible but smaller on mobile */}
-            <div style={{ 
-              marginTop: '8px', 
-              width: isMobile ? '20px' : '40px', 
-              height: '3px', 
-              backgroundColor: 'rgba(255,255,255,0.6)', 
-              borderRadius: '2px' 
-            }} />
-          </div>
-        ))}
-      </div>
-
-      <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
+    <div style={{ padding: isMobile ? '10px' : '20px', animation: 'fadeIn 0.3s ease' }}>
+      <NavigationHeader />
+      
+      <JournalCalendar 
+        month={{ id: selectedMonth + 1, name: months[selectedMonth] }} 
+        // We pass the day and the mode to force the entry view
+        selectedDay={selectedDay}
+        viewMode={viewMode} // 'entry' or 'month'
+        onDaySelect={(day) => {
+          setSelectedDay(day);
+          setViewMode('entry');
+        }}
+        onBack={() => setViewMode('archive')} 
+      />
     </div>
   );
 };
