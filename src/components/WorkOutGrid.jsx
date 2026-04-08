@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Trash2, Check, Scale, Plus, Ruler, Activity, ArrowLeft, TrendingUp } from 'lucide-react';
+import { Trash2, Check, Scale, Plus, Ruler, Activity, ArrowLeft, TrendingUp, LineChart } from 'lucide-react';
 
 const WorkoutGrid = ({ monthName, monthId, year, onBack }) => {
   // --- STATE ---
@@ -29,7 +29,7 @@ const WorkoutGrid = ({ monthName, monthId, year, onBack }) => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // --- PERSISTENCE & DASHBOARD SYNC ---
+  // --- PERSISTENCE ---
   useEffect(() => {
     localStorage.setItem(`exercises-${year}-${monthId}`, JSON.stringify(exercises));
     localStorage.setItem(`ticks-${year}-${monthId}`, JSON.stringify(ticks));
@@ -57,11 +57,11 @@ const WorkoutGrid = ({ monthName, monthId, year, onBack }) => {
     setTicks(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  // --- CALENDAR & GRAPH LOGIC ---
   const daysInMonthCount = new Date(year, monthId, 0).getDate();
   const daysArray = Array.from({ length: daysInMonthCount }, (_, i) => i + 1);
   const graphColors = ['#22C55E', '#3B82F6', '#EF4444', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4'];
 
+  // --- GRAPH LOGIC ---
   const getPathData = (ex) => {
     let runningTotal = 0;
     const points = [];
@@ -77,6 +77,26 @@ const WorkoutGrid = ({ monthName, monthId, year, onBack }) => {
       points.push(`${x},${y}`);
     });
     return points.join(' ');
+  };
+
+  // --- WEIGHT GRAPH LOGIC ---
+  const getWeightPathData = () => {
+    if (weightLogs.length < 2) return "";
+    const sortedLogs = [...weightLogs].sort((a, b) => a.id - b.id);
+    const weights = sortedLogs.map(l => parseFloat(l.weight));
+    const minW = Math.min(...weights) - 2;
+    const maxW = Math.max(...weights) + 2;
+    const range = maxW - minW;
+    
+    const width = 1000;
+    const height = 200;
+    const stepX = width / (sortedLogs.length - 1);
+
+    return sortedLogs.map((log, i) => {
+      const x = i * stepX;
+      const y = height - ((parseFloat(log.weight) - minW) / range) * height;
+      return `${x},${y}`;
+    }).join(' ');
   };
 
   const calculateBMI = (w, h) => {
@@ -104,14 +124,14 @@ const WorkoutGrid = ({ monthName, monthId, year, onBack }) => {
       bmi: bmiValue,
       bmiColor: category.color,
       bmiLabel: category.label,
-      date: new Date().toLocaleDateString(),
+      date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }),
     };
     setWeightLogs([newLog, ...weightLogs]);
     setCurrentWeight("");
   };
 
   const s = {
-    wrapper: { padding: isMobile ? '15px' : '20px', backgroundColor: '#fff', borderRadius: '24px' },
+    wrapper: { padding: isMobile ? '12px' : '20px', backgroundColor: '#fff', borderRadius: '24px' },
     greenBanner: { 
       backgroundColor: '#DCFCE7', padding: '12px', textAlign: 'center', 
       fontWeight: '900', color: '#166534', border: '2px solid #BBF7D0', 
@@ -124,7 +144,7 @@ const WorkoutGrid = ({ monthName, monthId, year, onBack }) => {
     stickyCol: { 
       position: 'sticky', left: 0, backgroundColor: '#F0FDF4', 
       zIndex: 10, borderRight: '2px solid #BBF7D0', padding: '12px',
-      color: '#166534', fontWeight: 'bold', textAlign: 'center', minWidth: '60px'
+      color: '#166534', fontWeight: 'bold', textAlign: 'center', minWidth: '50px'
     },
     inputBox: { 
       flex: 1, display: 'flex', alignItems: 'center', gap: '8px', 
@@ -133,19 +153,15 @@ const WorkoutGrid = ({ monthName, monthId, year, onBack }) => {
     },
     inputField: { 
       border: 'none', outline: 'none', fontWeight: 'bold', 
-      color: '#16A34A', width: '100%', fontSize: '16px', backgroundColor: 'transparent' 
+      color: '#16A34A', width: '100%', fontSize: '14px', backgroundColor: 'transparent' 
     },
     btn: { 
       backgroundColor: '#22C55E', color: 'white', border: 'none', 
-      padding: '12px 20px', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold' 
+      padding: '12px 20px', borderRadius: '12px', cursor: 'pointer', fontWeight: '900' 
     },
     chartCard: {
-      marginTop: '30px', padding: '25px', backgroundColor: '#FFFFFF',
+      marginTop: '30px', padding: isMobile ? '15px' : '25px', backgroundColor: '#FFFFFF',
       borderRadius: '20px', border: '2px solid #BBF7D0'
-    },
-    legendGrid: { 
-      display: 'flex', flexWrap: 'wrap', gap: '15px', marginTop: '20px', 
-      paddingTop: '15px', borderTop: '1px solid #F0FDF4' 
     }
   };
 
@@ -154,14 +170,15 @@ const WorkoutGrid = ({ monthName, monthId, year, onBack }) => {
       <button onClick={onBack} style={{ color: '#22C55E', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '800', marginBottom: '15px' }}>
         <ArrowLeft size={18} style={{verticalAlign: 'middle'}}/> BACK
       </button>
+      
       <div style={s.greenBanner}>{monthName.toUpperCase()} {year}</div>
 
-      {/* Exercise Input Section */}
+      {/* Exercise Input */}
       <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
         <div style={s.inputBox}>
           <input 
             style={s.inputField} 
-            placeholder="Type a new exercise..." 
+            placeholder="Add exercise..." 
             value={newExName}
             onChange={(e) => setNewExName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && addExercise()}
@@ -170,7 +187,6 @@ const WorkoutGrid = ({ monthName, monthId, year, onBack }) => {
         <button style={s.btn} onClick={addExercise}><Plus size={20} /></button>
       </div>
 
-      {/* --- CONDITIONAL RENDER: Only show if exercises exist --- */}
       {exercises.length > 0 ? (
         <>
           <div style={s.tableContainer}>
@@ -179,10 +195,10 @@ const WorkoutGrid = ({ monthName, monthId, year, onBack }) => {
                 <tr>
                   <th style={s.stickyCol}>DAY</th>
                   {exercises.map(ex => (
-                    <th key={ex.id} style={{ backgroundColor: '#F0FDF4', color: '#166534', padding: '15px', borderBottom: '2px solid #BBF7D0', minWidth: '120px' }}>
+                    <th key={ex.id} style={{ backgroundColor: '#F0FDF4', color: '#166534', padding: '15px', borderBottom: '2px solid #BBF7D0', minWidth: '100px' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
-                        <span style={{fontSize: '11px', fontWeight: '900'}}>{ex.name.toUpperCase()}</span>
-                        <Trash2 size={14} color="#FDA4AF" cursor="pointer" onClick={() => setExercises(exercises.filter(e => e.id !== ex.id))} />
+                        <span style={{fontSize: '10px', fontWeight: '900'}}>{ex.name.toUpperCase()}</span>
+                        <Trash2 size={13} color="#FDA4AF" cursor="pointer" onClick={() => setExercises(exercises.filter(e => e.id !== ex.id))} />
                       </div>
                     </th>
                   ))}
@@ -193,17 +209,17 @@ const WorkoutGrid = ({ monthName, monthId, year, onBack }) => {
                   <tr key={day}>
                     <td style={s.stickyCol}>{day}</td>
                     {exercises.map(ex => (
-                      <td key={ex.id} style={{ borderBottom: '1px solid #DCFCE7', borderRight: '1px solid #DCFCE7', padding: '10px', textAlign: 'center' }}>
+                      <td key={ex.id} style={{ borderBottom: '1px solid #DCFCE7', borderRight: '1px solid #DCFCE7', padding: '8px', textAlign: 'center' }}>
                         <div 
                           style={{
-                            width: '28px', height: '28px', borderRadius: '6px', margin: '0 auto',
+                            width: '24px', height: '24px', borderRadius: '6px', margin: '0 auto',
                             backgroundColor: ticks[`${day}-${ex.id}`] ? '#22C55E' : 'transparent',
                             border: ticks[`${day}-${ex.id}`] ? '2px solid #22C55E' : '2px solid #BBF7D0',
                             display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
                           }} 
                           onClick={() => toggleTick(day, ex.id)}
                         >
-                          {ticks[`${day}-${ex.id}`] && <Check size={16} color="white" strokeWidth={4} />}
+                          {ticks[`${day}-${ex.id}`] && <Check size={14} color="white" strokeWidth={4} />}
                         </div>
                       </td>
                     ))}
@@ -215,89 +231,91 @@ const WorkoutGrid = ({ monthName, monthId, year, onBack }) => {
 
           <div style={s.chartCard}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
-              <TrendingUp color="#166534" size={24} />
-              <h3 style={{ margin: 0, color: '#166534', fontSize: '18px', fontWeight: '900' }}>WORKOUT PROGRESS</h3>
+              <TrendingUp color="#166534" size={20} />
+              <h3 style={{ margin: 0, color: '#166534', fontSize: '16px', fontWeight: '900' }}>REPETITION TREND</h3>
             </div>
             
-            <div style={{ position: 'relative', height: '200px', borderLeft: '2px solid #BBF7D0', borderBottom: '2px solid #BBF7D0', margin: '10px 10px 20px 40px' }}>
-              <div style={{ position: 'absolute', left: '-40px', top: '0', fontSize: '10px', fontWeight: 'bold', color: '#166534' }}>100%</div>
-              <div style={{ position: 'absolute', left: '-40px', bottom: '0', fontSize: '10px', fontWeight: 'bold', color: '#166534' }}>0%</div>
-              
+            <div style={{ position: 'relative', height: '150px', borderLeft: '2px solid #BBF7D0', borderBottom: '2px solid #BBF7D0', margin: '10px 5px 20px 35px' }}>
+              <div style={{ position: 'absolute', left: '-35px', top: '0', fontSize: '9px', fontWeight: 'bold', color: '#166534' }}>100%</div>
+              <div style={{ position: 'absolute', left: '-35px', bottom: '0', fontSize: '9px', fontWeight: 'bold', color: '#166534' }}>0%</div>
               <svg viewBox="0 0 1000 200" preserveAspectRatio="none" style={{ width: '100%', height: '100%', display: 'block', overflow: 'visible' }}>
                 {exercises.map((ex, i) => (
-                  <polyline
-                    key={ex.id}
-                    fill="none"
-                    stroke={graphColors[i % graphColors.length]}
-                    strokeWidth="4"
-                    points={getPathData(ex)}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
+                  <polyline key={ex.id} fill="none" stroke={graphColors[i % graphColors.length]} strokeWidth="5" points={getPathData(ex)} strokeLinecap="round" strokeLinejoin="round" />
                 ))}
               </svg>
             </div>
-
-            <div style={s.legendGrid}>
-              {exercises.map((ex, i) => (
-                <div key={ex.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: '700', color: '#166534' }}>
-                  <div style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: graphColors[i % graphColors.length] }} />
-                  {ex.name}
-                </div>
-              ))}
-            </div>
           </div>
         </>
-      ) : (
-        <div style={{ padding: '60px', textAlign: 'center', backgroundColor: '#F0FDF4', borderRadius: '20px', border: '2px dashed #BBF7D0' }}>
-          <Activity size={40} color="#BBF7D0" style={{ marginBottom: '10px' }} />
-          <p style={{ color: '#166534', fontWeight: 'bold', margin: 0 }}>Add an exercise!</p>
-        </div>
-      )}
+      ) : null}
 
-      {/* Weight Tracker - Always Visible */}
-      <div style={{ marginTop: '30px', padding: '20px', backgroundColor: '#F0FDF4', borderRadius: '20px', border: '2px solid #BBF7D0' }}>
+      {/* Body Tracking Section */}
+      <div style={{ marginTop: '30px', padding: isMobile ? '15px' : '20px', backgroundColor: '#F0FDF4', borderRadius: '24px', border: '2px solid #BBF7D0' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
-          <Activity color="#166534" size={24} />
-          <h2 style={{ color: '#166534', margin: 0, fontSize: '18px', fontWeight: '900' }}>BODY TRACKING</h2>
+          <Activity color="#166534" size={20} />
+          <h2 style={{ color: '#166534', margin: 0, fontSize: '16px', fontWeight: '900' }}>WEIGHT & BMI TRACKER</h2>
         </div>
 
         <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '10px', marginBottom: '20px' }}>
           <div style={s.inputBox}>
-            <Ruler size={18} color="#15803D" />
+            <Ruler size={16} color="#15803D" />
             <input type="number" style={s.inputField} placeholder="Height (cm)" value={height} onChange={e => setHeight(e.target.value)} />
           </div>
           <div style={s.inputBox}>
-            <Scale size={18} color="#15803D" />
+            <Scale size={16} color="#15803D" />
             <input type="number" style={s.inputField} placeholder="Weight (kg)" value={currentWeight} onChange={e => setCurrentWeight(e.target.value)} />
           </div>
-          <button style={s.btn} onClick={handleWeightUpdate}>UPDATE</button>
+          <button style={s.btn} onClick={handleWeightUpdate}>LOG</button>
         </div>
 
-        <div style={{ overflowX: 'auto', backgroundColor: '#fff', borderRadius: '12px' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead style={{ backgroundColor: '#BBF7D0' }}>
-              <tr>
-                <th style={{ padding: '12px', color: '#166534', fontSize: '12px' }}>DATE</th>
-                <th style={{ padding: '12px', color: '#166534', fontSize: '12px' }}>WEIGHT</th>
-                <th style={{ padding: '12px', color: '#166534', fontSize: '12px' }}>BMI</th>
-              </tr>
-            </thead>
-            <tbody>
-              {weightLogs.map(log => (
-                <tr key={log.id} style={{ borderBottom: '1px solid #F0FDF4', textAlign: 'center' }}>
-                  <td style={{ padding: '12px', color: '#15803D', fontSize: '14px' }}>{log.date}</td>
-                  <td style={{ padding: '12px', color: '#15803D', fontWeight: 'bold' }}>{log.weight}kg</td>
-                  <td style={{ padding: '12px' }}>
-                    <span style={{ backgroundColor: log.bmiColor, color: 'white', padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: '900' }}>
-                      {log.bmi} - {log.bmiLabel.toUpperCase()}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {weightLogs.length > 0 && (
+          <>
+            <div style={{ overflowX: 'auto', backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #BBF7D0', marginBottom: '20px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead style={{ backgroundColor: '#BBF7D0' }}>
+                  <tr>
+                    <th style={{ padding: '10px', color: '#166534', fontSize: '11px' }}>DATE</th>
+                    <th style={{ padding: '10px', color: '#166534', fontSize: '11px' }}>WEIGHT</th>
+                    <th style={{ padding: '10px', color: '#166534', fontSize: '11px' }}>BMI</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {weightLogs.slice(0, 5).map(log => (
+                    <tr key={log.id} style={{ borderBottom: '1px solid #F0FDF4', textAlign: 'center' }}>
+                      <td style={{ padding: '10px', color: '#15803D', fontSize: '12px' }}>{log.date}</td>
+                      <td style={{ padding: '10px', color: '#15803D', fontWeight: 'bold', fontSize: '13px' }}>{log.weight}kg</td>
+                      <td style={{ padding: '10px' }}>
+                        <span style={{ backgroundColor: log.bmiColor, color: 'white', padding: '3px 10px', borderRadius: '20px', fontSize: '10px', fontWeight: '900' }}>
+                          {log.bmi}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* NEW: Weight Trend Graph */}
+            {weightLogs.length > 1 && (
+              <div style={{ padding: '15px', backgroundColor: '#FFFFFF', borderRadius: '15px', border: '1px solid #BBF7D0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '15px' }}>
+                  <LineChart color="#166534" size={18} />
+                  <span style={{ fontSize: '13px', fontWeight: '900', color: '#166534' }}>WEIGHT TREND (kg)</span>
+                </div>
+                <div style={{ position: 'relative', height: '120px', borderLeft: '2px solid #F0FDF4', borderBottom: '2px solid #F0FDF4', margin: '10px 5px 10px 30px' }}>
+                  <svg viewBox="0 0 1000 200" preserveAspectRatio="none" style={{ width: '100%', height: '100%', display: 'block', overflow: 'visible' }}>
+                    <polyline fill="none" stroke="#22C55E" strokeWidth="6" points={getWeightPathData()} strokeLinecap="round" strokeLinejoin="round" />
+                    {/* Add dots to points */}
+                    {getWeightPathData().split(' ').map((p, i) => {
+                      const [x, y] = p.split(',');
+                      return <circle key={i} cx={x} cy={y} r="12" fill="#166534" />;
+                    })}
+                  </svg>
+                </div>
+                <p style={{ textAlign: 'center', fontSize: '10px', color: '#166534', fontWeight: 'bold', marginTop: '5px' }}>OLDER → NEWER</p>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

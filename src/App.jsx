@@ -172,7 +172,7 @@ const App = () => {
   return (
     <div style={styles.container}>
       <header style={styles.header}>
-        <h1 style={styles.title}>Work Tracker</h1>
+        <h1 style={styles.title}>Life Tracker</h1>
       </header>
       <main style={{ maxWidth: '1200px', margin: '0 auto' }}>
         {renderView()}
