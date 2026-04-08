@@ -1,29 +1,25 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Image as ImageIcon, Save, Smile, X, ArrowLeft } from 'lucide-react';
 
-const JournalCalendar = ({ month, onBack, selectedDay: propDay, viewMode }) => {
-  // --- Initialize state with propDay if provided, otherwise null ---
+const JournalCalendar = ({ month, year, onBack, selectedDay: propDay, viewMode }) => {
   const [selectedDay, setSelectedDay] = useState(propDay || null);
   const [entry, setEntry] = useState("");
   const [showEmojiBoard, setShowEmojiBoard] = useState(false);
   const [attachedImage, setAttachedImage] = useState(null);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
   
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // --- SYNC WITH PARENT PROP ---
-  // This ensures that if the parent says "Go to April 6", this component listens.
   useEffect(() => {
-    if (propDay) {
-      setSelectedDay(propDay);
-    }
+    if (propDay) setSelectedDay(propDay);
   }, [propDay]);
 
-  // --- Persistence Logic (LocalStorage) ---
+  // --- PERSISTENCE LOGIC (Year-Aware) ---
   useEffect(() => {
     if (selectedDay) {
-      const storageKey = `journal_2026_${month.name}_${selectedDay}`;
+      // Use the dynamic year prop in the storage key
+      const storageKey = `journal_${year}_${month.name}_${selectedDay}`;
       const saved = localStorage.getItem(storageKey);
       if (saved) {
         const parsed = JSON.parse(saved);
@@ -34,7 +30,7 @@ const JournalCalendar = ({ month, onBack, selectedDay: propDay, viewMode }) => {
         setAttachedImage(null);
       }
     }
-  }, [selectedDay, month.name]);
+  }, [selectedDay, month.name, year]);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -43,10 +39,10 @@ const JournalCalendar = ({ month, onBack, selectedDay: propDay, viewMode }) => {
   }, []);
 
   const saveEntry = () => {
-    const storageKey = `journal_2026_${month.name}_${selectedDay}`;
+    const storageKey = `journal_${year}_${month.name}_${selectedDay}`;
     const data = { text: entry, image: attachedImage };
     localStorage.setItem(storageKey, JSON.stringify(data));
-    alert("Journal Saved! ✨");
+    alert(`Journal Saved for ${month.name} ${selectedDay}, ${year}! ✨`);
   };
 
   const handleImageUpload = (e) => {
@@ -76,11 +72,6 @@ const JournalCalendar = ({ month, onBack, selectedDay: propDay, viewMode }) => {
 
   const styles = {
     wrapper: { padding: isMobile ? '10px' : '20px', animation: 'fadeIn 0.3s ease', maxWidth: '100%' },
-    backBtn: { 
-      background: 'none', border: 'none', color: '#9D174D', fontWeight: '800', 
-      cursor: 'pointer', marginBottom: '15px', display: 'flex', alignItems: 'center', 
-      gap: '8px', fontSize: isMobile ? '12px' : '14px' 
-    },
     entryPage: {
       backgroundColor: '#FFFFFF', borderRadius: isMobile ? '25px' : '35px', 
       padding: isMobile ? '20px' : '35px', border: '2px solid #FBCFE8', 
@@ -106,7 +97,6 @@ const JournalCalendar = ({ month, onBack, selectedDay: propDay, viewMode }) => {
   };
 
   // --- VIEW 1: JOURNAL ENTRY PAGE ---
-  // If viewMode is 'entry' (or a day is selected), show the writing space
   if (viewMode === 'entry' || (selectedDay && viewMode !== 'month')) {
     return (
       <div style={styles.wrapper}>
@@ -140,7 +130,7 @@ const JournalCalendar = ({ month, onBack, selectedDay: propDay, viewMode }) => {
           </div>
 
           <h2 style={{ color: '#9D174D', marginTop: '15px', fontSize: '24px', fontWeight: '900' }}>
-            {month.name} {selectedDay}, 2026
+            {month.name} {selectedDay}, {year}
           </h2>
           
           <textarea 
@@ -169,12 +159,15 @@ const JournalCalendar = ({ month, onBack, selectedDay: propDay, viewMode }) => {
   }
 
   // --- VIEW 2: MONTH GRID (ALL DAYS) ---
-  const daysInMonth = new Date(2026, month.id, 0).getDate();
+  // Calculates days correctly for the selected year (handles Leap Years)
+  const daysInMonth = new Date(year, month.id, 0).getDate();
   const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
   return (
     <div style={styles.wrapper}>
-      <h2 style={{ color: '#9D174D', fontWeight: '900', marginBottom: '20px', fontSize: '22px' }}>{month.name} Archive</h2>
+      <h2 style={{ color: '#9D174D', fontWeight: '900', marginBottom: '20px', fontSize: '22px' }}>
+        {month.name} {year} Archive
+      </h2>
       <div style={styles.dayGrid}>
         {daysArray.map(day => (
           <div 

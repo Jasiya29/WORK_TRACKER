@@ -1,16 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Trash2, Check, ArrowLeft, Plus } from 'lucide-react';
+import { Trash2, Check, ArrowLeft, Plus, LineChart, Activity } from 'lucide-react';
 
-const MonthGrid = ({ monthId, monthName, onBack }) => {
-  // --- 1. INSTANT LOAD (Fixes the "disappearing" bug) ---
+const MonthGrid = ({ monthId, monthName, year, onBack }) => {
   const [habits, setHabits] = useState(() => {
-    const storageKey = `habits_2026_${monthName}`;
+    const storageKey = `habits_${year}_${monthName}`;
     const savedData = localStorage.getItem(storageKey);
     return savedData ? JSON.parse(savedData) : [];
   });
 
   const [newHabit, setNewHabit] = useState("");
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -18,37 +17,26 @@ const MonthGrid = ({ monthId, monthName, onBack }) => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // --- 2. SAVE & SYNC (Triggers only when habits actually change) ---
   useEffect(() => {
-    const storageKey = `habits_2026_${monthName}`;
-    
-    // Save specific habit list
+    const storageKey = `habits_${year}_${monthName}`;
     localStorage.setItem(storageKey, JSON.stringify(habits));
 
-    // UPDATE DASHBOARD KEY: habit_tracker_2026
-    const dashboardStats = JSON.parse(localStorage.getItem('habit_tracker_2026') || '{}');
-    const daysInMonth = new Date(2026, monthId, 0).getDate();
+    const dashboardKey = `habit_tracker_${year}`;
+    const dashboardStats = JSON.parse(localStorage.getItem(dashboardKey) || '{}');
+    const daysInMonthCount = new Date(year, monthId, 0).getDate();
     
-    for (let d = 1; d <= daysInMonth; d++) {
+    for (let d = 1; d <= daysInMonthCount; d++) {
       const isAnyHabitDone = habits.some(h => h.completed && h.completed[d]);
       dashboardStats[`${monthId}-${d}`] = isAnyHabitDone;
     }
-    
-    localStorage.setItem('habit_tracker_2026', JSON.stringify(dashboardStats));
-  }, [habits, monthName, monthId]);
+    localStorage.setItem(dashboardKey, JSON.stringify(dashboardStats));
+  }, [habits, monthName, monthId, year]);
 
   const addHabit = (e) => {
     if (e.key === 'Enter' || e.type === 'click') {
       if (e.key === 'Enter') e.preventDefault();
       if (!newHabit.trim()) return;
-
-      const newHabitObject = {
-        id: Date.now(),
-        name: newHabit,
-        completed: {}
-      };
-
-      setHabits(prev => [...prev, newHabitObject]);
+      setHabits(prev => [...prev, { id: Date.now(), name: newHabit, completed: {} }]);
       setNewHabit("");
     }
   };
@@ -70,109 +58,175 @@ const MonthGrid = ({ monthId, monthName, onBack }) => {
     }
   };
 
-  const daysArray = Array.from({ length: new Date(2026, monthId, 0).getDate() }, (_, i) => i + 1);
+  const daysInMonthCount = new Date(year, monthId, 0).getDate();
+  const daysArray = Array.from({ length: daysInMonthCount }, (_, i) => i + 1);
 
-  // --- STYLES ---
+  // --- PROGRESS LOGIC ---
+  const colors = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4'];
+  
+  const getPathData = (habit) => {
+    let runningTotal = 0;
+    const points = [];
+    const width = 1000;
+    const height = 200;
+    const stepX = width / (daysInMonthCount - 1);
+
+    daysArray.forEach((day, i) => {
+      if (habit.completed?.[day]) runningTotal++;
+      const x = i * stepX;
+      const percentage = (runningTotal / daysInMonthCount) * 100;
+      const y = height - (percentage * (height / 100));
+      points.push(`${x},${y}`);
+    });
+    return points.join(' ');
+  };
+
   const styles = {
-    container: { padding: isMobile ? '10px 5px' : '20px', animation: 'fadeIn 0.3s ease', maxWidth: '100vw' },
-    header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', padding: '0 5px' },
-    scrollContainer: { 
-      overflowX: 'auto', 
-      borderRadius: isMobile ? '15px' : '20px', 
-      border: '1px solid #E2E8F0', 
-      backgroundColor: '#FFF', 
-      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', 
-      WebkitOverflowScrolling: 'touch' 
+    container: { padding: isMobile ? '15px' : '30px', backgroundColor: '#F1F5F9', minHeight: '100vh' },
+    header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '25px' },
+    inputContainer: { 
+      display: 'flex', 
+      gap: '12px', 
+      marginBottom: '25px', 
+      padding: '12px', 
+      backgroundColor: '#FFFFFF', 
+      borderRadius: '10px', 
+      border: '2px solid #E2E8F0',
+      boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
     },
-    table: { width: '100%', borderCollapse: 'separate', borderSpacing: 0 },
-    stickyCol: { 
-      position: 'sticky', left: 0, backgroundColor: '#F8FAFC', zIndex: 10, 
-      padding: '12px', color: '#64748B', fontSize: '12px', fontWeight: '800', 
-      borderBottom: '1px solid #F1F5F9', borderRight: '2px solid #F1F5F9',
-      textAlign: 'center', minWidth: '50px'
+    input: { 
+      flex: 1, 
+      border: 'none', 
+      outline: 'none', 
+      fontSize: '16px', 
+      fontWeight: '600', 
+      color: '#2563EB', 
+      backgroundColor: 'transparent' 
     },
-    thHabit: { 
-      backgroundColor: '#F8FAFC', padding: '15px', color: '#0369A1', 
-      fontSize: '11px', fontWeight: '900', borderBottom: '2px solid #F1F5F9',
-      borderRight: '1px solid #F1F5F9', minWidth: '100px', textAlign: 'center', textTransform: 'uppercase'
-    },
-    tdTick: { padding: '10px', borderBottom: '1px solid #F1F5F9', borderRight: '1px solid #F1F5F9', textAlign: 'center' },
-    tickBox: (isDone) => ({
-      width: '24px', height: '24px', borderRadius: '6px', cursor: 'pointer', margin: '0 auto',
-      backgroundColor: isDone ? '#3B82F6' : 'transparent',
-      border: isDone ? '2px solid #3B82F6' : '2px solid #E0F2FE',
-      display: 'flex', alignItems: 'center', justifyContent: 'center'
-    }),
-    inputRow: { padding: isMobile ? '15px' : '20px', backgroundColor: '#F8FAFC', borderTop: '2px solid #F1F5F9', display: 'flex', gap: '10px' },
-    input: { flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: isMobile ? '16px' : '18px', fontWeight: '600', color: '#1E40AF' },
-    mobileAddBtn: { backgroundColor: '#3B82F6', borderRadius: '50%', padding: '8px', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none' }
+    addBtn: { backgroundColor: '#2563EB', color: 'white', border: 'none', borderRadius: '8px', padding: '10px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700' },
+    card: { backgroundColor: '#FFF', borderRadius: '20px', padding: '20px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', marginBottom: '25px' },
+    stickyCol: { position: 'sticky', left: 0, backgroundColor: '#FFF', zIndex: 10, borderRight: '2px solid #F1F5F9', padding: '12px', fontWeight: 'bold', textAlign: 'center' },
+    chartContainer: { padding: '25px', backgroundColor: '#FFFFFF', borderRadius: '20px', border: '1px solid #E2E8F0' },
+    legendGrid: { display: 'flex', flexWrap: 'wrap', gap: '15px', marginTop: '20px', padding: '15px', borderTop: '1px solid #F1F5F9' },
+    placeholder: {
+      padding: '60px',
+      textAlign: 'center',
+      backgroundColor: '#FFF',
+      borderRadius: '20px',
+      border: '2px dashed #CBD5E1',
+      color: '#64748B'
+    }
   };
 
   return (
     <div style={styles.container}>
-      <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }`}</style>
       <div style={styles.header}>
-        <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#3B82F6', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontSize: isMobile ? '12px' : '14px' }}>
-          <ArrowLeft size={isMobile ? 16 : 18}/> BACK
+        <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#2563EB', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
+          <ArrowLeft size={18} /> BACK
         </button>
-        <h2 style={{ color: '#1E3A8A', margin: 0, fontSize: isMobile ? '18px' : '22px', fontWeight: '900' }}>{monthName.toUpperCase()}</h2>
+        <h2 style={{ margin: 0, fontSize: '24px', fontWeight: '900', color: '#1E3A8A' }}>{monthName.toUpperCase()} {year}</h2>
       </div>
 
-      <div style={{...styles.inputRow, borderRadius: '15px', marginBottom: '15px', border: '1px solid #E2E8F0', backgroundColor: '#FFFFFF'}}>
+      <div style={styles.inputContainer}>
         <input 
           style={styles.input}
-          placeholder="+ New Habit..."
+          placeholder="Type a new habit..."
           value={newHabit}
           onChange={(e) => setNewHabit(e.target.value)}
           onKeyDown={addHabit}
         />
-        <button style={styles.mobileAddBtn} onClick={addHabit}>
-          <Plus size={20} />
+        <button onClick={addHabit} style={styles.addBtn}>
+          <Plus size={20} /> ADD
         </button>
       </div>
 
-      <div style={styles.scrollContainer}>
-        <table style={styles.table}>
-          <thead>
-            <tr>
-              <th style={styles.stickyCol}>DAY</th>
-              {habits.map(habit => (
-                <th key={habit.id} style={styles.thHabit}>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                    <span>{habit.name}</span>
-                    <Trash2 size={14} color="#FDA4AF" onClick={() => deleteHabit(habit.id)} style={{ cursor: 'pointer' }}/>
-                  </div>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {habits.length > 0 ? (
-              daysArray.map(day => (
-                <tr key={day}>
-                  <td style={styles.stickyCol}>{day}</td>
-                  {habits.map(habit => {
-                    const isChecked = habit.completed && habit.completed[day];
-                    return (
-                      <td key={habit.id} style={styles.tdTick}>
-                        <div style={styles.tickBox(isChecked)} onClick={() => toggleDay(habit.id, day)}>
-                          {isChecked && <Check size={14} color="white" strokeWidth={4} />}
+      {/* CONDITIONAL RENDER: Only show grid if habits exist */}
+      {habits.length > 0 ? (
+        <>
+          <div style={styles.card}>
+            <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ backgroundColor: '#F8FAFC' }}>
+                    <th style={styles.stickyCol}>DAY</th>
+                    {habits.map(h => (
+                      <th key={h.id} style={{ padding: '15px', fontSize: '12px', color: '#1E40AF', fontWeight: '900', borderBottom: '2px solid #F1F5F9', minWidth: '120px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                          {h.name.toUpperCase()}
+                          <Trash2 size={14} color="#FDA4AF" onClick={() => deleteHabit(h.id)} style={{ cursor: 'pointer' }} />
                         </div>
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={100} style={{ padding: '60px', textAlign: 'center', color: '#94A3B8', fontWeight: '600' }}>
-                  No habits added for {monthName}.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {daysArray.map(day => (
+                    <tr key={day}>
+                      <td style={styles.stickyCol}>{day}</td>
+                      {habits.map(h => (
+                        <td key={h.id} style={{ textAlign: 'center', borderBottom: '1px solid #F1F5F9', padding: '10px' }}>
+                          <div 
+                            onClick={() => toggleDay(h.id, day)}
+                            style={{
+                              width: '26px', height: '26px', borderRadius: '7px', margin: '0 auto', cursor: 'pointer',
+                              backgroundColor: h.completed?.[day] ? '#2563EB' : 'transparent',
+                              border: h.completed?.[day] ? '2px solid #2563EB' : '2px solid #E2E8F0',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center'
+                            }}
+                          >
+                            {h.completed?.[day] && <Check size={16} color="white" strokeWidth={4} />}
+                          </div>
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div style={styles.chartContainer}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '25px' }}>
+              <LineChart color="#2563EB" size={24} />
+              <h3 style={{ margin: 0, color: '#1E293B', fontSize: '18px', fontWeight: '900' }}>PROGRESS TREND</h3>
+            </div>
+
+            <div style={{ position: 'relative', height: '200px', borderLeft: '2px solid #E2E8F0', borderBottom: '2px solid #E2E8F0', margin: '10px 10px 20px 45px' }}>
+              <div style={{ position: 'absolute', left: '-45px', top: '0', fontSize: '11px', fontWeight: 'bold', color: '#94A3B8' }}>100%</div>
+              <div style={{ position: 'absolute', left: '-45px', bottom: '0', fontSize: '11px', fontWeight: 'bold', color: '#94A3B8' }}>0%</div>
+
+              <svg viewBox="0 0 1000 200" preserveAspectRatio="none" style={{ width: '100%', height: '100%', display: 'block', overflow: 'visible' }}>
+                {habits.map((h, i) => (
+                  <polyline
+                    key={h.id}
+                    fill="none"
+                    stroke={colors[i % colors.length]}
+                    strokeWidth="4"
+                    points={getPathData(h)}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                ))}
+              </svg>
+            </div>
+
+            <div style={styles.legendGrid}>
+              {habits.map((h, i) => (
+                <div key={h.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: '700', color: '#475569' }}>
+                  <div style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: colors[i % colors.length] }} />
+                  {h.name}
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      ) : (
+        <div style={styles.placeholder}>
+          <Activity size={40} color="#CBD5E1" style={{ marginBottom: '15px' }} />
+          <h3 style={{ margin: '0 0 10px 0', color: '#475569' }}>No Habits Tracked Yet</h3>
+          <p style={{ margin: 0, fontSize: '14px' }}>Add a habit above to start tracking your daily progress.</p>
+        </div>
+      )}
     </div>
   );
 };

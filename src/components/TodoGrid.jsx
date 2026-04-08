@@ -1,39 +1,42 @@
 import React, { useState, useEffect } from 'react';
 import { Check, Trash2, Plus, ArrowLeft } from 'lucide-react';
 
-const TodoGrid = ({ monthId, monthName, onBack, initialDay }) => {
+const TodoGrid = ({ monthId, monthName, year, onBack, initialDay }) => {
   // --- STATE ---
   const [selectedDay, setSelectedDay] = useState(initialDay || null);
   const [tasksByDate, setTasksByDate] = useState({}); 
   const [inputValue, setInputValue] = useState("");
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
 
-  // --- SYNC PROP TO STATE (THE FIX) ---
-  // This ensures that when you click "April List" (initialDay = null) 
-  // or "Today" (initialDay = 6), this component updates its view.
+  // --- SYNC PROP TO STATE ---
   useEffect(() => {
     setSelectedDay(initialDay);
   }, [initialDay]);
 
-  // --- LOCAL STORAGE & RESPONSIVENESS ---
+  // --- LOCAL STORAGE & RESPONSIVENESS (Year-Aware) ---
   useEffect(() => {
-    const savedTasks = localStorage.getItem('todo_tasks_2026');
+    const storageKey = `todo_tasks_${year}`;
+    const savedTasks = localStorage.getItem(storageKey);
     if (savedTasks) {
       setTasksByDate(JSON.parse(savedTasks));
+    } else {
+      setTasksByDate({}); // Clear state if switching to a year with no data
     }
 
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [year]);
 
   useEffect(() => {
-    if (Object.keys(tasksByDate).length > 0) {
-      localStorage.setItem('todo_tasks_2026', JSON.stringify(tasksByDate));
+    // Only save if we have a valid year
+    if (year) {
+      localStorage.setItem(`todo_tasks_${year}`, JSON.stringify(tasksByDate));
     }
-  }, [tasksByDate]);
+  }, [tasksByDate, year]);
 
-  const daysInMonth = new Date(2026, monthId, 0).getDate();
+  // Calculates days in month specifically for the selected year
+  const daysInMonth = new Date(year, monthId, 0).getDate();
   const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
   const dateKey = `${monthId}-${selectedDay}`;
 
@@ -60,7 +63,6 @@ const TodoGrid = ({ monthId, monthName, onBack, initialDay }) => {
     setTasksByDate({ ...tasksByDate, [dateKey]: updated });
   };
 
-  // --- STYLES (EXACTLY AS PROVIDED) ---
   const styles = {
     container: { padding: isMobile ? '10px' : '20px', animation: 'fadeIn 0.3s ease' },
     dayGrid: { 
@@ -69,51 +71,29 @@ const TodoGrid = ({ monthId, monthName, onBack, initialDay }) => {
       gap: isMobile ? '10px' : '15px' 
     },
     dayCard: {
-      aspectRatio: '1/1',
-      backgroundColor: '#FFFBEB',
-      border: '2px solid #FEF08A',
-      borderRadius: isMobile ? '14px' : '18px',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      fontSize: isMobile ? '18px' : '20px',
-      fontWeight: '800',
-      color: '#A16207',
-      cursor: 'pointer'
+      aspectRatio: '1/1', backgroundColor: '#FFFBEB', border: '2px solid #FEF08A',
+      borderRadius: isMobile ? '14px' : '18px', display: 'flex', alignItems: 'center',
+      justifyContent: 'center', fontSize: isMobile ? '18px' : '20px', fontWeight: '800',
+      color: '#A16207', cursor: 'pointer'
     },
     sheetContainer: {
-      backgroundColor: '#FFFFFF',
-      borderRadius: isMobile ? '20px' : '28px',
-      border: '2px solid #FEF08A',
-      padding: isMobile ? '15px' : '30px',
-      maxWidth: '650px',
-      margin: '0 auto',
-      boxShadow: '0 10px 25px -5px rgba(161, 98, 7, 0.05)'
+      backgroundColor: '#FFFFFF', borderRadius: isMobile ? '20px' : '28px',
+      border: '2px solid #FEF08A', padding: isMobile ? '15px' : '30px',
+      maxWidth: '650px', margin: '0 auto', boxShadow: '0 10px 25px -5px rgba(161, 98, 7, 0.05)'
     },
     table: { width: '100%', borderCollapse: 'collapse' },
     th: { textAlign: 'left', padding: '10px', color: '#A16207', borderBottom: '2px solid #FEF9C3', fontSize: '10px', letterSpacing: '1px' },
     td: { padding: isMobile ? '12px 8px' : '15px 12px', borderBottom: '1px solid #FEF9C3' },
     checkbox: (isDone) => ({
-      width: isMobile ? '28px' : '24px',
-      height: isMobile ? '28px' : '24px',
-      borderRadius: '8px',
-      border: isDone ? 'none' : '2px solid #FEF08A',
-      backgroundColor: isDone ? '#EAB308' : 'transparent',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      cursor: 'pointer'
+      width: isMobile ? '28px' : '24px', height: isMobile ? '28px' : '24px',
+      borderRadius: '8px', border: isDone ? 'none' : '2px solid #FEF08A',
+      backgroundColor: isDone ? '#EAB308' : 'transparent', display: 'flex',
+      alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
     }),
     inputField: {
-      width: '100%',
-      border: 'none',
-      borderBottom: '2px solid #FEF9C3',
-      outline: 'none',
-      fontWeight: '600',
-      color: '#A16207',
-      fontSize: '16px',
-      padding: '8px 0',
-      backgroundColor: 'transparent'
+      width: '100%', border: 'none', borderBottom: '2px solid #FEF9C3',
+      outline: 'none', fontWeight: '600', color: '#A16207', fontSize: '16px',
+      padding: '8px 0', backgroundColor: 'transparent'
     }
   };
 
@@ -122,20 +102,13 @@ const TodoGrid = ({ monthId, monthName, onBack, initialDay }) => {
     const activeTasks = tasksByDate[dateKey] || [];
     return (
       <div style={styles.container}>
-        <style>
-          {`
-            .todo-input::placeholder { color: #FDE68A; font-style: italic; opacity: 0.8; }
-            @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-          `}
-        </style>
-        
         <button onClick={() => setSelectedDay(null)} style={{ background: 'none', border: 'none', color: '#A16207', fontWeight: 'bold', cursor: 'pointer', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <ArrowLeft size={18} /> BACK
         </button>
 
         <div style={styles.sheetContainer}>
           <h2 style={{ color: '#A16207', marginBottom: '20px', fontWeight: '900', fontSize: isMobile ? '1.2rem' : '1.5rem' }}>
-            {selectedDay} {monthName}
+            {selectedDay} {monthName} {year}
           </h2>
           
           <table style={styles.table}>
@@ -169,7 +142,6 @@ const TodoGrid = ({ monthId, monthName, onBack, initialDay }) => {
                 </td>
                 <td colSpan="2" style={{ ...styles.td, borderBottom: 'none' }}>
                   <input 
-                    className="todo-input"
                     style={styles.inputField}
                     placeholder="New task..."
                     value={inputValue}
@@ -189,7 +161,9 @@ const TodoGrid = ({ monthId, monthName, onBack, initialDay }) => {
   return (
     <div style={styles.container}>
       <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#A16207', fontWeight: 'bold', cursor: 'pointer', marginBottom: '20px' }}>← BACK</button>
-      <h2 style={{ color: '#A16207', fontWeight: '900', marginBottom: '20px', letterSpacing: '1px', fontSize: isMobile ? '1.1rem' : '1.4rem' }}>{monthName.toUpperCase()}</h2>
+      <h2 style={{ color: '#A16207', fontWeight: '900', marginBottom: '20px', letterSpacing: '1px', fontSize: isMobile ? '1.1rem' : '1.4rem' }}>
+        {monthName.toUpperCase()} {year}
+      </h2>
       
       <div style={styles.dayGrid}>
         {daysArray.map(day => (
